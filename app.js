@@ -1,4 +1,5 @@
 
+
         let docBlobs = {
             id_card: null,
             cv: null,
@@ -159,8 +160,6 @@
             }
         }
 
-
-
 async function secureFetch(url, options = {}) {
     const token = localStorage.getItem('sirh_token');
     const headers = options.headers || {};
@@ -169,31 +168,33 @@ async function secureFetch(url, options = {}) {
         headers['Authorization'] = `Bearer ${token}`;
     }
 
-    // 1. CONFIGURATION DU TIMEOUT (25 secondes)
+    // 1. TIMEOUT AUGMENTÉ À 60 SECONDES
+    // Cela laisse le temps au serveur Render/Make de se réveiller (Cold Start)
+    const TIMEOUT_MS = 60000; 
+    
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25000ms = 25s
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS); 
 
     try {
         // 2. APPEL RÉSEAU
         const response = await fetch(url, { 
             ...options, 
             headers, 
-            signal: controller.signal // On lie le contrôleur d'annulation
+            signal: controller.signal 
         });
 
-        clearTimeout(timeoutId); // On annule le timer si la réponse arrive
+        clearTimeout(timeoutId); // Succès : on arrête le chronomètre
 
-        // 3. GESTION FINE DES ERREURS HTTP
+        // 3. GESTION DES ERREURS HTTP
         if (!response.ok) {
-            // On essaie de lire le message d'erreur du serveur (JSON), sinon texte générique
             let errorMessage = `Erreur serveur (${response.status})`;
             try {
                 const errData = await response.json();
                 if (errData.error) errorMessage = errData.error;
-            } catch (e) { /* Pas de JSON, on garde le message par défaut */ }
+            } catch (e) { }
 
             if (response.status === 401 || response.status === 403) {
-                throw new Error("Accès refusé ou session expirée.");
+                throw new Error("Session expirée. Veuillez vous reconnecter.");
             }
             throw new Error(errorMessage);
         }
@@ -201,19 +202,16 @@ async function secureFetch(url, options = {}) {
         return response;
 
     } catch (error) {
-        // 4. GESTION DU TIMEOUT ET ERREURS RÉSEAU
+        // 4. GESTION DES ERREURS TECHNIQUES
         if (error.name === 'AbortError') {
-            throw new Error("Le serveur met trop de temps à répondre (Timeout). Vérifiez votre connexion.");
+            throw new Error("Le serveur met trop de temps à répondre (> 60s). Réessayez.");
         }
         if (error.message.includes('Failed to fetch')) {
-            throw new Error("Impossible de contacter le serveur. Vérifiez votre internet.");
+            throw new Error("Erreur de connexion. Vérifiez votre accès internet.");
         }
-        throw error; // On renvoie l'erreur pour qu'elle soit affichée par l'appelant
+        throw error; 
     }
 }
-
-
-
 
 
 
@@ -304,11 +302,7 @@ async function handleLogin(e) {
 
 
 
-
-
-
-
-        function setSession(n, r, id){ 
+function setSession(n, r, id){ 
             currentUser = { nom: n, role: r, id: id }; 
             document.getElementById('login-screen').classList.add('hidden'); 
             document.getElementById('app-layout').classList.remove('hidden'); 
@@ -317,64 +311,104 @@ async function handleLogin(e) {
             document.getElementById('avatar-display').innerText = n[0]; 
             document.body.className = "text-slate-900 overflow-hidden h-screen w-screen role-" + r.toLowerCase(); 
             
-            if(r === 'EMPLOYEE') { switchView('my-profile'); } else { switchView('dash'); }
+            // Gestion de la vue par défaut
+            if(r === 'EMPLOYEE') { 
+                document.getElementById('nav-admin-section').style.display='none';
+                document.getElementById('global-search-container').style.display='none';
+                switchView('my-profile'); 
+            } else { 
+                switchView('dash'); 
+            }
 
-            // AFFICHAGE DES SKELETONS
+            // AFFICHAGE DES SKELETONS (Chargement visuel)
             const skeletonRow = `<tr class="border-b"><td class="p-4 flex gap-3 items-center"><div class="w-10 h-10 rounded-full skeleton"></div><div class="space-y-2"><div class="h-3 w-24 rounded skeleton"></div><div class="h-2 w-16 rounded skeleton"></div></div></td><td class="p-4"><div class="h-3 w-32 rounded skeleton"></div></td><td class="p-4"><div class="h-6 w-16 rounded-lg skeleton"></div></td><td class="p-4"></td></tr>`;
             document.getElementById('full-body').innerHTML = Array(6).fill(skeletonRow).join('');
             
-            fetchData(false);
+            // --- LANCEMENT DE LA SYNCHRO GLOBALE ---
+            // Au lieu de fetchData(false), on lance tout pour être sûr d'avoir Congés, Candidats, etc.
+            refreshAllData();
         }
 
 
 
 
-                async function refreshAllData() {
-    const icon = document.getElementById('refresh-icon'); 
-    
-    // Animation visuelle
-    if(icon) icon.classList.add('fa-spin');
-    
-    // On vide les tableaux pour montrer que ça charge (Skeletons)
-    const skeletonRow = `<tr class="border-b"><td class="p-4 flex gap-3 items-center"><div class="w-10 h-10 rounded-full skeleton"></div><div class="space-y-2"><div class="h-3 w-24 rounded skeleton"></div><div class="h-2 w-16 rounded skeleton"></div></div></td><td class="p-4"><div class="h-3 w-32 rounded skeleton"></div></td><td class="p-4"><div class="h-6 w-16 rounded-lg skeleton"></div></td><td class="p-4"></td></tr>`;
-    document.getElementById('full-body').innerHTML = Array(6).fill(skeletonRow).join('');
-    
-    // Petit Toast de chargement en haut à droite
-    const Toast = Swal.mixin({toast: true, position: 'top-end', showConfirmButton: false});
-    Toast.fire({icon: 'info', title: 'Actualisation générale...'});
 
-    try {
-        // LANCE TOUTES LES MISES À JOUR EN MÊME TEMPS (Parallèle)
-        // fetchData(true) -> Force la mise à jour des employés/dossiers/profils
-        // fetchLeaveRequests() -> Met à jour les congés
-        
-        // Dans refreshAllData()
-        await Promise.all([
-            fetchData(true), 
-            fetchLeaveRequests(),
-            fetchCandidates() // <--- AJOUTE CELA
-        ]);
 
-        // Si tout s'est bien passé
-        Toast.fire({icon: 'success', title: 'Tout est à jour !', timer: 2000});
 
-    } catch (error) {
-        // Si UNE SEULE requête échoue, on affiche l'erreur
-        console.error(error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Échec de l\'actualisation',
-            text: error.message,
-            confirmButtonColor: '#0f172a'
-        });
-        
-        // On remet les données en cache si possible pour ne pas laisser l'écran vide
-        fetchData(false); 
-    } finally {
-        // On arrête l'animation quoi qu'il arrive
-        if(icon) setTimeout(() => icon.classList.remove('fa-spin'), 500);
-    }
-}
+                                                    async function refreshAllData() {
+            const icon = document.getElementById('refresh-icon'); 
+            
+            // 1. Animation visuelle (Feedback)
+            if(icon) icon.classList.add('fa-spin');
+            const Toast = Swal.mixin({toast: true, position: 'top-end', showConfirmButton: false});
+            Toast.fire({icon: 'info', title: 'Synchronisation...'});
+
+            try {
+                // Liste des tâches à effectuer en parallèle
+                const tasks = [];
+
+                // Tâche 1 : Les employés (Tout le monde en a besoin)
+                // true = on force le réseau, on ignore le cache local
+                tasks.push(fetchData(true)); 
+
+                // Tâche 2 : Les congés (Tout le monde)
+                tasks.push(fetchLeaveRequests());
+
+                // Tâche 3 : Les Candidats (Seulement RH et ADMIN)
+                if (currentUser && ['RH', 'ADMIN'].includes(currentUser.role)) {
+                    tasks.push(fetchCandidates());
+                }
+
+                // Tâche 4 : Les Logs (Seulement ADMIN)
+                if (currentUser && currentUser.role === 'ADMIN') {
+                    tasks.push(fetchLogs());
+                }
+
+                // Tâche 5 : Recharger son propre profil (Si Employee)
+                if (currentUser && currentUser.role === 'EMPLOYEE') {
+                     // On recharge pour avoir les dernières infos (adresse, tel...)
+                     // Note : loadMyProfile utilise les données de employees, donc fetchData suffit souvent,
+                     // mais c'est bien de rafraîchir l'affichage
+                     setTimeout(loadMyProfile, 500); 
+                }
+
+                // ON LANCE TOUT EN MÊME TEMPS
+                await Promise.all(tasks);
+
+                // Mise à jour des graphiques après avoir reçu les nouvelles données
+                renderCharts();
+
+                Toast.fire({icon: 'success', title: 'Données à jour !', timer: 2000});
+
+            } catch (error) {
+                console.error(error);
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Synchro partielle',
+                    text: 'Certaines données n\'ont pas pu être actualisées. Vérifiez votre connexion.',
+                    confirmButtonColor: '#0f172a'
+                });
+            } finally {
+                // Arrêt de l'animation
+                if(icon) setTimeout(() => icon.classList.remove('fa-spin'), 500);
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1265,7 +1299,7 @@ async function saveMyProfile() {
                         text: 'Le collaborateur a été ajouté et ses accès ont été envoyés par email.',
                         confirmButtonColor: '#2563eb'
                     });
-                    location.reload(); // Recharge pour voir le nouveau membre
+                    refreshAllData(); // Recharge pour voir le nouveau membre
                 } else {
                     const errorData = await response.json();
                     throw new Error(errorData.error || "Erreur serveur");
@@ -1698,7 +1732,7 @@ async function processLeave(recordId, decision) {
                 });
                 
                 // 5. Rafraîchir le tableau des congés pour faire disparaître la ligne traitée
-                fetchLeaveRequests(); 
+                refreshAllData(); 
             } else {
                 throw new Error("Erreur du serveur");
             }
@@ -2045,7 +2079,7 @@ async function handleCandidateAction(id, action) {
                 body: JSON.stringify({ id: id, action: action, agent: currentUser.nom })
             });
             Swal.fire('Succès', 'Action effectuée', 'success');
-            fetchCandidates();
+            refreshAllData();
             // Si on embauche, on recharge aussi la liste des employés
             if(action === 'ACCEPTER_EMBAUCHE') refreshAllData();
         } catch(e) { 
@@ -2157,9 +2191,6 @@ function updateFileFeedback(inputId, labelId) {
             Toast.fire({ icon: 'warning', title: 'Connexion Perdue', text: 'Mode hors ligne activé.' }); 
             document.body.classList.add('offline-mode'); 
         });
-
-
-
 
 
 
