@@ -990,20 +990,73 @@ function getDriveId(link) {
 
 
 
+function switchView(v) { 
+            // 1. Arrêt des caméras (Nettoyage)
+            if(videoStream) { videoStream.getTracks().forEach(t => t.stop()); videoStream = null; }
+            if(contractStream) { contractStream.getTracks().forEach(t => t.stop()); contractStream = null; }
+            
+            // 2. Masquer TOUTES les sections
+            document.querySelectorAll('.view-section').forEach(section => {
+                section.classList.remove('active');
+            });
 
-        
-        function switchView(v){ 
-            if(videoStream){ videoStream.getTracks().forEach(t=>t.stop()); videoStream=null; }
-            if(contractStream){ contractStream.getTracks().forEach(t=>t.stop()); contractStream=null; }
-            document.querySelectorAll('.view-section').forEach(e=>e.classList.remove('active')); 
-            document.getElementById('view-'+v).classList.add('active'); 
-            document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('bg-blue-600','text-white')); 
-            const ab=document.querySelector(`button[onclick="switchView('${v}')"]`); 
-            if(ab)ab.classList.add('bg-blue-600','text-white'); 
-            if(window.innerWidth<768 && !document.getElementById('sidebar').classList.contains('-translate-x-full')) toggleSidebar(); 
-            if(v==='logs') fetchLogs(); 
-        }       
-       
+            // 3. Afficher la section demandée
+            const target = document.getElementById('view-' + v);
+            if(target) target.classList.add('active');
+
+            // 4. Gestion des boutons du menu (Style actif)
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('bg-blue-600', 'text-white');
+                // On remet le style par défaut
+            });
+            
+            // On active le bouton cliqué (celui qui a switchView('v') dans son onclick)
+            const activeBtn = document.querySelector(`button[onclick="switchView('${v}')"]`);
+            if(activeBtn) activeBtn.classList.add('bg-blue-600', 'text-white');
+
+            // --- CORRECTION MAJEURE ICI : RESET DU SCROLL ---
+            // On force le conteneur principal à remonter tout en haut
+            const mainContainer = document.getElementById('main-scroll-container');
+            if(mainContainer) {
+                mainContainer.scrollTo(0, 0); // Remonte instantanément
+            }
+            window.scrollTo(0, 0); // Sécurité pour le body aussi
+
+            // 5. Logique spécifique par vue
+            const searchContainer = document.getElementById('global-search-container');
+            if(v === 'employees' || v === 'logs') { 
+                if(currentUser && currentUser.role !== 'EMPLOYEE') { 
+                    searchContainer.style.visibility = 'visible'; 
+                    searchContainer.style.opacity = '1'; 
+                }
+            } else { 
+                searchContainer.style.visibility = 'hidden'; 
+                searchContainer.style.opacity = '0'; 
+            }
+            
+            if(v === 'add-new') { 
+                document.getElementById('form-onboarding').reset(); 
+                resetCamera(); 
+            }
+            
+            if(v === 'logs') fetchLogs(); 
+
+            // 6. Fermer sidebar sur mobile
+            if(window.innerWidth < 768) { 
+                const sb = document.getElementById('sidebar'); 
+                if(!sb.classList.contains('-translate-x-full')) toggleSidebar(); 
+            }
+        }
+
+
+
+
+
+
+
+
+
+
         function toggleSidebar(){const sb=document.getElementById('sidebar'), o=document.getElementById('sidebar-overlay'); if(sb.classList.contains('-translate-x-full')){sb.classList.remove('-translate-x-full');o.classList.remove('hidden');}else{sb.classList.add('-translate-x-full');o.classList.add('hidden');}}
         function filterTable(){const t=document.getElementById('search-input').value.toLowerCase(); const s=document.querySelector('.view-section.active'); if(s)s.querySelectorAll('tbody tr').forEach(r=>{r.style.display=r.innerText.toLowerCase().includes(t)?'':'none'})}
         function parseDateSmart(d){if(!d)return new Date();if(!isNaN(d)&&!String(d).includes('/'))return new Date((d-25569)*86400000);if(String(d).includes('/')){const p=d.split('/'); return new Date(p[2],p[1]-1,p[0]);}return new Date(d);}
@@ -1609,65 +1662,69 @@ function handleLogout() {
 
 
 
-                             async function fetchLeaveRequests() {
+
+
+
+    async function fetchLeaveRequests() {
+    // 1. Vérification du rôle (Un employé ne doit pas voir cette section)
     if (!currentUser || currentUser.role === 'EMPLOYEE') return;
     
     const body = document.getElementById('leave-requests-body');
     const section = document.getElementById('manager-leave-section');
     
-    body.innerHTML = '<tr><td colspan="3" class="p-4 text-center italic text-slate-400">Chargement des demandes...</td></tr>';
+    if (!body || !section) return;
 
     try {
+        // 2. Appel au serveur Render
         const r = await secureFetch(`${URL_READ_LEAVES}?agent=${encodeURIComponent(currentUser.nom)}`);
-        if (!r.ok) throw new Error("Erreur réseau Make");
+        const leaves = await r.json();
+        
+        console.log("Congés reçus de l'API :", leaves); // Pour vérifier dans la console F12
 
-        let leaves = await r.json();
-        if (!Array.isArray(leaves)) leaves = []; 
+        // 3. Filtrage des demandes (On s'assure de prendre 'En attente' ou de tout afficher si vide)
+        // Note : On gère le cas où statut est absent en vérifiant si la donnée existe
+        const pending = leaves.filter(l => {
+            if (!l.statut) return true; // Si pas de statut, on affiche quand même pour ne pas perdre la demande
+            return l.statut.toLowerCase().trim() === 'en attente';
+        });
 
-        const pending = leaves.filter(l => l.statut === 'En attente');
         body.innerHTML = '';
 
         if (pending.length > 0) {
-            section.classList.remove('hidden');
+            section.classList.remove('hidden'); // On montre la section
+            section.style.display = 'block';     // Sécurité supplémentaire
 
             pending.forEach(l => {
+                // Encodage pour la popup de détails
                 const safeNom = encodeURIComponent(l.nom || "Inconnu");
                 const safeMotif = encodeURIComponent(l.motif || "Aucun motif");
-                
-                // Recherche du lien document
-                let rawDoc = l.justificatif_link || l.justificatif || l.pj || l.attachment || l.url;
-                let docLink = '';
-                if (Array.isArray(rawDoc) && rawDoc.length > 0) rawDoc = rawDoc[0].url || rawDoc[0];
-                if (rawDoc && rawDoc !== 'null' && rawDoc !== '#') {
-                    docLink = formatGoogleLink(rawDoc);
-                }
+                const safeType = l.type || "Congé";
+                const safeRecordId = l.record_id || l.id;
 
                 body.innerHTML += `
-                <tr class="border-b hover:bg-slate-50 transition-colors">
-                    <td class="px-8 py-4 font-bold text-sm text-slate-700">${l.nom}</td>
-                    <td class="px-8 py-4 text-xs text-slate-500">
-                        ${l.debut} <span class="text-slate-300 mx-1">➔</span> ${l.fin}
-                    </td>
-                    <td class="px-8 py-4 text-right flex justify-end items-center gap-2">
-                        <button onclick="showLeaveDetailFromSafeData('${safeNom}', '${l.type}', '${l.debut}', '${l.fin}', '${safeMotif}', '${encodeURIComponent(docLink)}')" 
-                                class="w-8 h-8 flex items-center justify-center text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all">
-                            <i class="fa-solid fa-eye"></i>
-                        </button>
-                        <button onclick="processLeave('${l.record_id}', 'Validé')" class="bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase">OUI</button>
-                        <button onclick="processLeave('${l.record_id}', 'Refusé')" class="bg-red-50 text-red-600 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase">NON</button>
-                    </td>
-                </tr>`;
+                    <tr class="border-b hover:bg-slate-50 transition-colors">
+                        <td class="px-8 py-4 font-bold text-sm text-slate-700">${l.nom || 'Inconnu'}</td>
+                        <td class="px-8 py-4 text-xs text-slate-500">
+                            ${l.debut || '?'} <span class="text-slate-300 mx-1">➔</span> ${l.fin || '?'}
+                        </td>
+                        <td class="px-8 py-4 text-right flex justify-end items-center gap-2">
+                            <button onclick="showLeaveDetailFromSafeData('${safeNom}', '${safeType}', '${l.debut}', '${l.fin}', '${safeMotif}', '')" 
+                                    class="w-8 h-8 flex items-center justify-center text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all" title="Détails">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                            <button onclick="processLeave('${safeRecordId}', 'Validé')" class="bg-emerald-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-sm active:scale-95 transition-all">OUI</button>
+                            <button onclick="processLeave('${safeRecordId}', 'Refusé')" class="bg-white text-red-500 border border-red-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-red-50 active:scale-95 transition-all">NON</button>
+                        </td>
+                    </tr>`;
             });
-        } else { 
-            section.classList.add('hidden'); 
+        } else {
+            section.classList.add('hidden'); // On cache si aucune demande
+            section.style.display = 'none';
         }
     } catch (e) { 
-        console.error("ERREUR:", e);
-        body.innerHTML = `<tr><td colspan="3" class="text-center text-red-500 p-4">Erreur : ${e.message}</td></tr>`;
+        console.error("Erreur fetchLeaveRequests:", e);
     }
 }
-
-
 
 
 
@@ -2191,6 +2248,5 @@ function updateFileFeedback(inputId, labelId) {
             Toast.fire({ icon: 'warning', title: 'Connexion Perdue', text: 'Mode hors ligne activé.' }); 
             document.body.classList.add('offline-mode'); 
         });
-
 
 
