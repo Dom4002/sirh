@@ -4,19 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-
-
     <!-- PWA CONFIGURATION -->
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0f172a">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/9322/9322127.png">
-
-
-
-
-
     <title>SIRH Pro | Secure Access</title>
     
     <!-- Bibliothèques -->
@@ -26,9 +19,6 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
-
-    <link rel="stylesheet" href="style.css">
-
 
 </head>
 <body class="text-slate-900 overflow-hidden h-screen w-screen">
@@ -54,8 +44,6 @@
                                 <div class="w-64 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                                     <div class="h-full bg-gradient-to-r from-blue-600 to-indigo-500 w-0 animate-[progress_1.5s_ease-in-out_infinite] rounded-full"></div>
                                 </div>
-                                
-                              
                             </div>
 
 
@@ -137,8 +125,8 @@
 
             <div id="main-scroll-container" class="flex-1 overflow-y-auto p-8 scroll-smooth">
                 <!-- VUE 1: DASHBOARD -->
-            <section id="view-dash" class="view-section management-only">
-                <div class="flex justify-between items-center mb-8">
+            <section id="view-dash" class="view-section active">             
+            <div class="flex justify-between items-center mb-8">
                     <h2 class="text-2xl font-extrabold text-slate-800">Analyse de l'Effectif</h2>
                     <div class="flex gap-3 items-center">
                         <button onclick="refreshAllData()" class="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-600 shadow-sm flex items-center gap-2 text-sm font-bold active:scale-95">
@@ -223,8 +211,7 @@
 
 
                  <!-- VUE 2: LISTE COLLABORATEURS -->
-                <section id="view-employees" class="view-section management-only">
-                    
+                <section id="view-employees" class="view-section">
                     <!-- EN-TÊTE (HAUT) -->
                     <div class="flex flex-col md:flex-row justify-between items-end mb-6 px-1">
                         <div>
@@ -279,24 +266,8 @@
                     </div>
                 </section>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
                 <!-- VUE 3: AJOUT -->
-                <section id="view-add-new" class="view-section rh-only">
+                <section id="view-add-new" class="view-section">
                     <div class="max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border">
                         <div class="bg-slate-900 px-10 py-6 text-white flex justify-between items-center"><h2 class="text-xl font-bold">Nouveau Profil</h2><i class="fa-solid fa-user-plus opacity-20 text-3xl"></i></div>
                         <form id="form-onboarding" onsubmit="handleOnboarding(event)" class="p-10 grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -375,8 +346,8 @@
 
 
                         <!-- VUE 7: RECRUTEMENT / ATS -->
-                <section id="view-recruitment" class="view-section rh-only">
-                    <div class="flex justify-between items-center mb-8">
+                    <section id="view-recruitment" class="view-section">
+                        <div class="flex justify-between items-center mb-8">
                         <h2 class="text-2xl font-extrabold text-slate-800">Candidatures (Google Form)</h2>
                         <button onclick="fetchCandidates()" class="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-600 shadow-sm font-bold text-sm">
                             <i class="fa-solid fa-rotate mr-2"></i> Actualiser
@@ -403,7 +374,7 @@
                 </section>
 
                 <!-- VUE 4: LOGS -->
-                <section id="view-logs" class="view-section admin-only">
+                <section id="view-logs" class="view-section">
                     <div class="bg-white rounded-3xl shadow-xl border overflow-hidden">
                         <div class="p-8 border-b font-black text-slate-800 flex justify-between items-center uppercase text-sm">Journal d'Audit Système <button onclick="fetchLogs()" class="text-blue-600"><i class="fa-solid fa-rotate"></i></button></div>
                         <div class="overflow-x-auto"><table class="w-full text-left whitespace-nowrap"><thead class="bg-slate-900 text-white text-[10px] uppercase"><tr><th class="p-5">Date</th><th class="p-5">Agent</th><th class="p-5">Action</th><th class="p-5">Détails</th></tr></thead><tbody id="logs-body"></tbody></table></div>
@@ -776,10 +747,11 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+
+        // --- CONFIGURATION ---
 
 
-        <script>
+    <script>
         // Enregistrement du Service Worker pour la PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -789,6 +761,5 @@
             });
         }
     </script>
-
 </body>
 </html>
