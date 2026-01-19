@@ -1,9 +1,30 @@
-
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f1f5f9; }
-        .view-section { display: none; }
-        .view-section.active { display: block; animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
+        
+                    /* --- CORRECTION AFFICHAGE VUES --- */
+        .view-section { 
+            display: none !important; /* Caché par défaut et ne prend pas de place */
+            opacity: 0;
+        }
+
+        /* Seule la section avec la classe .active s'affiche */
+        .view-section.active { 
+            display: block !important; 
+            opacity: 1;
+            animation: fadeIn 0.3s ease-out; 
+        }
+
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(5px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+
+
+
+
+    
+
+
         .admin-only, .rh-only, .management-only { display: none !important; }
         body.role-admin .admin-only, body.role-admin .rh-only, body.role-admin .management-only { display: block !important; } 
         body.role-rh .rh-only, body.role-rh .management-only { display: block !important; }       
@@ -56,8 +77,8 @@
 
 
 
-
-                                    @keyframes progress {
+    
+              @keyframes progress {
                                         0% { w: 0%; margin-left: 0; }
                                         50% { w: 50%; margin-left: 25%; }
                                         100% { w: 100%; margin-left: 100%; }
