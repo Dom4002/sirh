@@ -21,7 +21,7 @@ const SIRH_CONFIG = {
         primary: "#0f172a",   // Couleur Sidebar
         accent: "#2563eb",    // Couleur Boutons / Éléments actifs
         fontFamily: "'Plus Jakarta Sans', sans-serif", // Choix de police
-        baseFontSize: "14px" // Taille de base (14px ou 16px recommandé)
+        baseFontSize: "15px" // Taille de base (14px ou 16px recommandé)
     },
 
     // 3. PARAMÈTRES GPS MULTI-SIÈGES
@@ -36,7 +36,7 @@ const SIRH_CONFIG = {
                 name: "Siège Principal", 
                 lat: 6.36,   // Latitude
                 lon: 2.40,   // Longitude
-                radius: 10000  // Rayon autorisé en mètres
+                radius: 200  // Rayon autorisé en mètres
             },
             { 
                 name: "Agence Nord", 
@@ -3321,4 +3321,5 @@ function applyBranding() {
 
     console.log(`🎨 Branding intelligent appliqué (${textOnAccent} sur ${theme.accent})`);
 }
+
 
